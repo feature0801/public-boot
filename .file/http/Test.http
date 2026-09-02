@@ -1,0 +1,103 @@
+### ---------------------------------------------------------------
+### 공통 변수
+### ---------------------------------------------------------------
+@host = http://localhost:8080
+@baseUrl = {{host}}/api/v1/test
+@token = eyJhbGciOiJIUzI1NiJ9.sample.token
+
+### ---------------------------------------------------------------
+### [GET] 실제 구현된 API - TestController#select
+### ---------------------------------------------------------------
+GET {{baseUrl}}/select
+Accept: application/json
+
+> {%
+    client.test("status 200", function() {
+        client.assert(response.status === 200, "status = " + response.status);
+    });
+    client.test("body = SUCCESS", function() {
+        client.assert(response.body === "SUCCESS", "body = " + response.body);
+    });
+%}
+
+### ---------------------------------------------------------------
+### 아래는 API 추가 시 복사해서 사용하는 샘플 템플릿
+### ---------------------------------------------------------------
+
+### [GET] Query Parameter 샘플
+GET {{baseUrl}}/list?page=0&size=10&keyword=sample
+Accept: application/json
+Authorization: Bearer {{token}}
+
+### [GET] Path Variable 샘플
+GET {{baseUrl}}/1
+Accept: application/json
+
+### [POST] JSON Body 샘플
+POST {{baseUrl}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "홍길동",
+  "email": "test@example.com",
+  "age": 20,
+  "tags": ["A", "B"]
+}
+
+> {%
+    client.test("status 200", function() {
+        client.assert(response.status === 200, "status = " + response.status);
+    });
+    // 응답 id 를 다음 요청에서 사용하도록 저장
+    client.global.set("testId", response.body.id);
+%}
+
+### [PUT] 저장한 변수 사용 샘플
+PUT {{baseUrl}}/{{testId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "홍길동(수정)",
+  "age": 21
+}
+
+### [PATCH] 부분 수정 샘플
+PATCH {{baseUrl}}/{{testId}}
+Content-Type: application/json
+
+{
+  "age": 22
+}
+
+### [DELETE] 삭제 샘플
+DELETE {{baseUrl}}/{{testId}}
+Authorization: Bearer {{token}}
+
+### [POST] Form URL Encoded 샘플
+POST {{baseUrl}}/form
+Content-Type: application/x-www-form-urlencoded
+
+name=hong&email=test%40example.com
+
+### [POST] Multipart 파일 업로드 샘플
+POST {{baseUrl}}/upload
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="description"
+
+파일 업로드 테스트
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.txt"
+Content-Type: text/plain
+
+< ./sample.txt
+--WebAppBoundary--
+
+### [GET] 파일 다운로드 샘플 (응답을 파일로 저장)
+GET {{baseUrl}}/download
+Accept: application/octet-stream
+
+>>! ./download-result.xlsx

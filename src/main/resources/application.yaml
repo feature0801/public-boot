@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: public-boot
+
+  thymeleaf:
+    check-template-location: false
+
+  ai:
+    google:
+      genai:
+        api-key: ${GOOGLE_GENAI_API_KEY:}
