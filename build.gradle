@@ -39,16 +39,16 @@ dependencies {
 
     // DB
     runtimeOnly 'org.postgresql:postgresql:42.7.13'
-    runtimeOnly 'org.xerial:sqlite-jdbc:3.53.2.1'
+    runtimeOnly 'org.xerial:sqlite-jdbc:3.53.4.0'
 
     // Mybatis
     // implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:4.1.0'
 
     // Caffeine
-    implementation 'com.github.ben-manes.caffeine:caffeine:3.2.4'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.3.0'
 
     // ModelMapper
-    implementation 'org.modelmapper:modelmapper:3.2.4'
+    implementation 'org.modelmapper:modelmapper:3.2.6'
 
     // Poi
     implementation 'org.apache.poi:poi-ooxml:5.5.1'
@@ -57,14 +57,14 @@ dependencies {
     implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 
     // Google
-    implementation 'com.google.api-client:google-api-client:2.9.0'
+    implementation 'com.google.api-client:google-api-client:2.9.1'
 
     // Jasypt
     implementation 'com.github.ulisesbocchio:jasypt-spring-boot-starter:4.0.4'
 
     // AWS
-    implementation 'software.amazon.awssdk:s3:2.52.0'
-    implementation 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.3.0'
+    implementation 'software.amazon.awssdk:s3:2.55.5'
+    implementation 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0'
 
     // JJWT
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'

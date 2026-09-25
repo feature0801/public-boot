@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>compareVersion 테스트</title>
+    <style>
+        :root {
+            --bg: #f6f7f9; --panel: #fff; --line: #dde1e6; --text: #1f2328; --muted: #6a737d;
+            --update-bg: #fff4c2; --update-fg: #7a5a00;
+            --add-bg: #d8f5dd;    --add-fg: #1a6b2b;
+            --delete-bg: #ffdcdc; --delete-fg: #a01919;
+            --none-bg: #eef0f3;   --none-fg: #6a737d;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 20px; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Apple SD Gothic Neo", sans-serif; }
+        h1 { font-size: 20px; margin: 0 0 4px; }
+        h2 { font-size: 15px; margin: 0 0 10px; }
+        .desc { color: var(--muted); margin: 0 0 16px; }
+        .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+        .options { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+        .options label { display: flex; gap: 6px; align-items: center; }
+        .options input[type=text] { width: 140px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; }
+        button { padding: 6px 14px; border: 1px solid var(--line); border-radius: 6px; background: #fff; cursor: pointer; }
+        button.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; font-weight: 600; }
+
+        textarea { width: 100%; height: 320px; font: 12px/1.45 ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 6px; padding: 8px; resize: vertical; }
+        .error { color: var(--delete-fg); font-weight: 600; margin-top: 8px; white-space: pre-wrap; }
+
+        .legend { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .badge { display: inline-block; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin-left: 6px; vertical-align: 1px; }
+        .badge.UPDATE { background: var(--update-bg); color: var(--update-fg); }
+        .badge.ADD    { background: var(--add-bg);    color: var(--add-fg); }
+        .badge.DELETE { background: var(--delete-bg); color: var(--delete-fg); }
+        .badge.NONE   { background: var(--none-bg);   color: var(--none-fg); }
+
+        .result-meta { margin-bottom: 10px; }
+        .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+        .tabs button.active { background: #1f2328; color: #fff; border-color: #1f2328; }
+
+        /* 트리 뷰 */
+        .tree { font: 12.5px/1.6 ui-monospace, Menlo, monospace; overflow-x: auto; }
+        .tree ul { list-style: none; margin: 0; padding-left: 18px; border-left: 1px dashed var(--line); }
+        .tree > ul { padding-left: 0; border-left: 0; }
+        .tree li { margin: 1px 0; }
+        .tree details > summary { cursor: pointer; }
+        .tree .key { color: #8250df; }
+        .tree .idx { color: var(--muted); }
+        .tree .str { color: #0a3069; }
+        .tree .num { color: #0550ae; }
+        .tree .lit { color: #cf222e; }
+        .tree .meta { color: var(--muted); }
+        .tree .row { border-radius: 3px; padding: 0 3px; }
+        .tree .row.UPDATE { background: var(--update-bg); }
+        .tree .row.ADD    { background: var(--add-bg); }
+        .tree .row.DELETE { background: var(--delete-bg); }
+        .tree .ghost { opacity: .75; font-style: italic; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+        td.path { font-family: ui-monospace, Menlo, monospace; }
+        pre.raw { margin: 0; font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre; overflow: auto; max-height: 600px; }
+    </style>
+</head>
+<body>
+<h1>compareVersion 테스트</h1>
+<p class="desc">기준(원본) JSON과 비교 JSON을 입력하고 비교를 실행하세요. 기본값으로 복잡한 보고서 샘플 데이터가 들어 있습니다.</p>
+
+<div class="panel">
+    <div class="options">
+        <label>arrayKey <input type="text" id="optArrayKey" value="id" placeholder="예) id 또는 id,code"></label>
+        <label>suffix <input type="text" id="optSuffix" value="Change"></label>
+        <label>itemMarkerKey <input type="text" id="optItemMarkerKey" value="rowChange"></label>
+        <label><input type="checkbox" id="optMarkUnchanged"> markUnchanged</label>
+        <button class="primary" id="btnCompare">비교 실행</button>
+        <button id="btnReset">샘플 데이터로 초기화</button>
+    </div>
+</div>
+
+<details class="panel" open>
+    <summary><strong>입력 데이터</strong></summary>
+    <div class="grid" style="margin-top:10px">
+        <div><h2>기준 데이터 (base)</h2><textarea id="inputBase" spellcheck="false"></textarea></div>
+        <div><h2>비교 데이터 (target)</h2><textarea id="inputTarget" spellcheck="false"></textarea></div>
+    </div>
+    <div class="error" id="error"></div>
+</details>
+
+<div id="result" hidden>
+    <div class="panel">
+        <div class="result-meta" id="resultMeta"></div>
+        <div class="legend">
+            <span class="badge UPDATE">UPDATE</span><span class="badge ADD">ADD</span>
+            <span class="badge DELETE">DELETE</span><span class="badge NONE">NONE</span>
+        </div>
+        <div class="tabs">
+            <button data-tab="tree" class="active">트리 뷰</button>
+            <button data-tab="summary">변경 목록</button>
+            <button data-tab="raw">결과 JSON</button>
+        </div>
+
+        <div data-view="tree" class="grid">
+            <div><h2>기준 (base)</h2><div class="tree" id="treeBase"></div></div>
+            <div><h2>비교 (target)</h2><div class="tree" id="treeTarget"></div></div>
+        </div>
+        <div data-view="summary" hidden>
+            <table>
+                <thead><tr><th>구분</th><th>경로</th><th>기준 값</th><th>비교 값</th></tr></thead>
+                <tbody id="summaryBody"></tbody>
+            </table>
+        </div>
+        <div data-view="raw" class="grid" hidden>
+            <div><h2>기준 (base)</h2><pre class="raw" id="rawBase"></pre></div>
+            <div><h2>비교 (target)</h2><pre class="raw" id="rawTarget"></pre></div>
+        </div>
+    </div>
+</div>
+
+<script src="../js/utils.js"></script>
+<script>
+    // -------------------------------------------------------------------------
+    // 샘플 데이터
+    // 확인 포인트: 최대 8뎁스, number/string/boolean 배열, 2차원 배열, 객체 배열(JSON list),
+    //   객체 배열 안의 객체 배열, 키 추가/삭제, 항목 추가/삭제/순서 변경, null, 타입 변경
+    // -------------------------------------------------------------------------
+    const SAMPLE_BASE = {
+        reportId: 'RPT-2026-Q1',
+        title: '2026년 1분기 경영 실적 보고서',
+        version: 3,
+        status: 'DRAFT',
+        confidential: true,
+        createdAt: '2026-04-02T09:00:00',
+        tags: ['실적', '분기', '내부'],
+        approvalLine: [1001, 1002, 1005],
+        author: {
+            id: 1001,
+            name: '김철수',
+            department: {
+                code: 'FIN',
+                name: '재무팀',
+                parent: {
+                    code: 'MGMT',
+                    name: '경영지원본부',
+                    parent: { code: 'HQ', name: '본사', location: { city: '서울', floor: 12 } },
+                },
+            },
+            contacts: [
+                { type: 'email', value: 'kim@example.com', primary: true },
+                { type: 'phone', value: '010-1111-2222', primary: false },
+            ],
+        },
+        summary: {
+            revenue: 125000000,
+            profit: 23000000,
+            margin: 18.4,
+            monthly: [41000000, 40500000, 43500000],
+            kpi: { target: 120000000, achieved: true, rate: 104.2 },
+        },
+        sections: [
+            {
+                id: 'S1',
+                title: '개요',
+                order: 1,
+                content: '1분기 실적은 목표 대비 104% 달성하였다.',
+                attachments: [],
+            },
+            {
+                id: 'S2',
+                title: '사업부별 매출',
+                order: 2,
+                charts: [
+                    { id: 'C1', type: 'bar', series: [[10, 20, 30], [15, 25, 35]], labels: ['1월', '2월', '3월'] },
+                    { id: 'C2', type: 'pie', series: [45, 30, 25], labels: ['A사업부', 'B사업부', 'C사업부'] },
+                ],
+                divisions: [
+                    {
+                        id: 'D-A',
+                        name: 'A사업부',
+                        manager: { id: 2001, name: '이영희' },
+                        products: [
+                            {
+                                id: 'P-100',
+                                name: '스마트센서',
+                                price: 32000,
+                                sales: [1200, 1350, 1500],
+                                options: [
+                                    { id: 'O-1', label: '기본형', stock: { warehouse: { seoul: 120, busan: 80 } } },
+                                    { id: 'O-2', label: '고급형', stock: { warehouse: { seoul: 40, busan: 15 } } },
+                                ],
+                            },
+                            { id: 'P-200', name: '게이트웨이', price: 150000, sales: [210, 190, 230], options: [] },
+                        ],
+                    },
+                    {
+                        id: 'D-B',
+                        name: 'B사업부',
+                        manager: { id: 2002, name: '박민수' },
+                        products: [
+                            { id: 'P-300', name: '클라우드 구독', price: 9900, sales: [5000, 5200, 5400], options: [] },
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'S3',
+                title: '리스크',
+                order: 3,
+                risks: [
+                    { id: 'R1', level: 'HIGH', description: '원자재 가격 상승', mitigations: ['장기 계약', '대체 공급처'] },
+                    { id: 'R2', level: 'LOW', description: '환율 변동', mitigations: ['헤지'] },
+                ],
+            },
+            { id: 'S4', title: '부록', order: 4, content: '참고 자료 목록' },
+        ],
+        reviewers: [
+            { id: 3001, name: '최지훈', comments: [{ id: 'CM1', text: '매출 수치 확인 필요', resolved: false }] },
+        ],
+        history: [
+            { version: 1, date: '2026-04-02', changes: null },
+            { version: 2, date: '2026-04-05', changes: ['오탈자 수정'] },
+        ],
+        extra: { note: '초안', flags: [true, false, true] },
+    };
+
+    const SAMPLE_TARGET = {
+        reportId: 'RPT-2026-Q1',
+        title: '2026년 1분기 경영 실적 보고서 (최종)',     // UPDATE
+        version: 4,                                        // UPDATE
+        status: 'APPROVED',                                // UPDATE
+        confidential: true,
+        createdAt: '2026-04-02T09:00:00',
+        approvedAt: '2026-04-10T15:30:00',                 // ADD
+        tags: ['실적', '분기', '대외'],                    // UPDATE (string array)
+        approvalLine: [1001, 1002, 1005, 1009],            // UPDATE (number array 길이 변경)
+        author: {
+            id: 1001,
+            name: '김철수',
+            department: {
+                code: 'FIN',
+                name: '재무팀',
+                parent: {
+                    code: 'MGMT',
+                    name: '경영지원본부',
+                    parent: { code: 'HQ', name: '본사', location: { city: '서울', floor: 15 } }, // 6뎁스 UPDATE
+                },
+            },
+            contacts: [                                    // 인덱스 매칭 (id 없음)
+                { type: 'email', value: 'chulsoo.kim@example.com', primary: true },
+                { type: 'phone', value: '010-1111-2222', primary: false },
+                { type: 'fax', value: '02-000-0000', primary: false },
+            ],
+        },
+        summary: {
+            revenue: 128500000,
+            profit: 23000000,
+            margin: '18.4',                                // UPDATE (number -> string 타입 변경)
+            monthly: [41000000, 44000000, 43500000],
+            kpi: { target: 120000000, achieved: true, rate: 107.1, grade: 'A' },
+        },
+        sections: [
+            {                                              // 순서만 바뀜 (S4가 맨 앞으로) -> 변경 없음
+                id: 'S4', title: '부록', order: 4, content: '참고 자료 목록',
+            },
+            {
+                id: 'S1',
+                title: '개요',
+                order: 1,
+                content: '1분기 실적은 목표 대비 107% 달성하였다.',
+                attachments: [{ id: 'F1', name: 'raw-data.xlsx', size: 20480 }], // 빈 배열 -> 항목 ADD
+            },
+            {
+                id: 'S2',
+                title: '사업부별 매출',
+                order: 2,
+                charts: [
+                    { id: 'C1', type: 'bar', series: [[10, 20, 30], [15, 28, 35]], labels: ['1월', '2월', '3월'] }, // 2차원 배열 변경
+                    { id: 'C2', type: 'donut', series: [45, 30, 25], labels: ['A사업부', 'B사업부', 'C사업부'] },
+                ],
+                divisions: [
+                    {
+                        id: 'D-A',
+                        name: 'A사업부',
+                        manager: { id: 2001, name: '이영희' },
+                        products: [
+                            {
+                                id: 'P-100',
+                                name: '스마트센서',
+                                price: 32000,
+                                sales: [1200, 1350, 1500],
+                                options: [
+                                    { id: 'O-1', label: '기본형', stock: { warehouse: { seoul: 95, busan: 80 } } }, // 8뎁스 UPDATE
+                                    { id: 'O-3', label: '프로형', stock: { warehouse: { seoul: 10, busan: 0 } } },   // ADD (O-2 DELETE)
+                                ],
+                            },
+                            { id: 'P-200', name: '게이트웨이', price: 145000, sales: [210, 190, 230], options: [] },
+                        ],
+                    },
+                    {
+                        id: 'D-B',
+                        name: 'B사업부',
+                        manager: { id: 2003, name: '정수연' },
+                        products: [
+                            { id: 'P-300', name: '클라우드 구독', price: 9900, sales: [5000, 5200, 5400], options: [] },
+                            { id: 'P-400', name: 'AI 분석 모듈', price: 49000, sales: [0, 120, 310], options: [] },
+                        ],
+                    },
+                ],
+            },
+            {
+                id: 'S3',
+                title: '리스크 및 대응',
+                order: 3,
+                risks: [
+                    { id: 'R1', level: 'MEDIUM', description: '원자재 가격 상승', mitigations: ['장기 계약', '대체 공급처', '재고 확보'] },
+                    { id: 'R3', level: 'HIGH', description: '공급망 지연', mitigations: [] },
+                ],
+            },
+        ],
+        reviewers: [
+            {
+                id: 3001,
+                name: '최지훈',
+                comments: [
+                    { id: 'CM1', text: '매출 수치 확인 필요', resolved: true },
+                    { id: 'CM2', text: '확인 완료', resolved: true },
+                ],
+            },
+            { id: 3002, name: '한소희', comments: [] },
+        ],
+        history: [
+            { version: 1, date: '2026-04-02', changes: null },
+            { version: 2, date: '2026-04-05', changes: ['오탈자 수정'] },
+            { version: 3, date: '2026-04-08', changes: ['리스크 항목 갱신', 'B사업부 신규 제품 추가'] },
+        ],
+        extra: { flags: [true, false, true] },             // note DELETE
+    };
+
+    // -------------------------------------------------------------------------
+
+    const $ = id => document.getElementById(id);
+    const CHANGE_VALUES = new Set(Object.values(Utils.CHANGE_TYPE));
+
+    function resetSample() {
+        $('inputBase').value = JSON.stringify(SAMPLE_BASE, null, 2);
+        $('inputTarget').value = JSON.stringify(SAMPLE_TARGET, null, 2);
+        $('error').textContent = '';
+    }
+
+    function readOptions() {
+        const arrayKeyText = $('optArrayKey').value.trim();
+        const keys = arrayKeyText.split(',').map(s => s.trim()).filter(Boolean);
+        return {
+            arrayKey: keys.length === 0 ? undefined : keys.length === 1 ? keys[0] : keys,
+            suffix: $('optSuffix').value || 'Change',
+            itemMarkerKey: $('optItemMarkerKey').value || 'rowChange',
+            markUnchanged: $('optMarkUnchanged').checked,
+        };
+    }
+
+    function parse(label, text) {
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(`${label} JSON 파싱 오류: ${e.message}`);
+        }
+    }
+
+    function runCompare() {
+        $('error').textContent = '';
+        let base, target;
+        try {
+            base = parse('기준 데이터', $('inputBase').value);
+            target = parse('비교 데이터', $('inputTarget').value);
+        } catch (e) {
+            $('error').textContent = e.message;
+            return;
+        }
+
+        const options = readOptions();
+        const started = performance.now();
+        const result = Utils.compareVersion(base, target, options);
+        const elapsed = (performance.now() - started).toFixed(2);
+
+        const rows = collectChanges(result, options);
+        const counts = rows.reduce((acc, r) => ({ ...acc, [r.type]: (acc[r.type] || 0) + 1 }), {});
+        $('resultMeta').innerHTML =
+            `<strong>changed: ${result.changed}</strong> · ${elapsed}ms · ` +
+            `최하위 변경 ${rows.length}건 (` +
+            ['UPDATE', 'ADD', 'DELETE'].map(t => `${t} ${counts[t] || 0}`).join(', ') + ')';
+
+        $('treeBase').replaceChildren(renderTree(result.base, options));
+        $('treeTarget').replaceChildren(renderTree(result.target, options));
+        $('rawBase').textContent = JSON.stringify(result.base, null, 2);
+        $('rawTarget').textContent = JSON.stringify(result.target, null, 2);
+        renderSummary(rows);
+
+        console.log('[compareVersion] options', options, 'result', result);
+        $('result').hidden = false;
+    }
+
+    // --- 트리 뷰 --------------------------------------------------------------
+
+    function isObject(v) { return Object.prototype.toString.call(v) === '[object Object]'; }
+
+    function isMarkerKey(obj, key, options) {
+        return (key.endsWith(options.suffix) || key === options.itemMarkerKey) && CHANGE_VALUES.has(obj[key]);
+    }
+
+    function renderTree(value, options) {
+        const ul = document.createElement('ul');
+        ul.append(renderEntry(null, value, undefined, options));
+        return ul;
+    }
+
+    function renderEntry(label, value, changeType, options, ghost = false) {
+        const li = document.createElement('li');
+        const line = document.createElement('span');
+        line.className = 'row' + (changeType ? ` ${changeType}` : '') + (ghost ? ' ghost' : '');
+        if (label) line.append(label);
+
+        const badge = changeType ? Object.assign(document.createElement('span'), { className: `badge ${changeType}`, textContent: changeType }) : null;
+
+        if (ghost) {
+            line.append(el('span', 'meta', '(이 데이터에 없음)'));
+            if (badge) line.append(badge);
+            li.append(line);
+            return li;
+        }
+
+        if (Array.isArray(value) || isObject(value)) {
+            const details = document.createElement('details');
+            details.open = true;
+            const summary = document.createElement('summary');
+            const size = Array.isArray(value)
+                ? `[${value.length}]`
+                : `{${Object.keys(value).filter(k => !isMarkerKey(value, k, options)).length}}`;
+            line.append(el('span', 'meta', size));
+            if (badge) line.append(badge);
+            summary.append(line);
+            details.append(summary, renderChildren(value, options));
+            li.append(details);
+        } else {
+            line.append(renderPrimitive(value));
+            if (badge) line.append(badge);
+            li.append(line);
+        }
+        return li;
+    }
+
+    function renderChildren(value, options) {
+        const ul = document.createElement('ul');
+        if (Array.isArray(value)) {
+            value.forEach((item, i) => {
+                const type = isObject(item) ? item[options.itemMarkerKey] : undefined;
+                ul.append(renderEntry(el('span', 'idx', `${i}: `), item, type, options));
+            });
+            return ul;
+        }
+
+        for (const key of Object.keys(value)) {
+            if (isMarkerKey(value, key, options)) {
+                // 반대편에만 있는 키: 표시만 있고 실제 키가 없음
+                const originalKey = key.slice(0, -options.suffix.length);
+                if (key.endsWith(options.suffix) && !Object.hasOwn(value, originalKey)) {
+                    ul.append(renderEntry(keyLabel(originalKey), undefined, value[key], options, true));
+                }
+                continue;
+            }
+            ul.append(renderEntry(keyLabel(key), value[key], value[key + options.suffix], options));
+        }
+        return ul;
+    }
+
+    function keyLabel(key) {
+        const frag = document.createDocumentFragment();
+        frag.append(el('span', 'key', key), ': ');
+        return frag;
+    }
+
+    function renderPrimitive(v) {
+        if (typeof v === 'string') return el('span', 'str', JSON.stringify(v));
+        if (typeof v === 'number') return el('span', 'num', String(v));
+        return el('span', 'lit', String(v));
+    }
+
+    function el(tag, className, text) {
+        return Object.assign(document.createElement(tag), { className, textContent: text });
+    }
+
+    // --- 변경 목록 (최하위 변경만) ----------------------------------------------
+
+    function collectChanges(result, options) {
+        const rows = [];
+        walk(result.base, '', 'base');
+        walk(result.target, '', 'target');
+        return rows;
+
+        function walk(node, path, side) {
+            if (Array.isArray(node)) {
+                node.forEach((item, i) => {
+                    const itemPath = `${path}[${i}]`;
+                    const type = isObject(item) ? item[options.itemMarkerKey] : undefined;
+                    // 항목 단위 추가/삭제는 한쪽에만 존재하므로 해당 쪽에서 기록
+                    if ((type === 'DELETE' && side === 'base') || (type === 'ADD' && side === 'target')) {
+                        rows.push({ type, path: itemPath, side, value: item });
+                    } else {
+                        walk(item, itemPath, side);
+                    }
+                });
+                return;
+            }
+            if (!isObject(node)) return;
+
+            for (const key of Object.keys(node)) {
+                if (isMarkerKey(node, key, options)) continue;
+                const childPath = path ? `${path}.${key}` : key;
+                const type = node[key + options.suffix];
+                const value = node[key];
+                const isContainer = Array.isArray(value) || isObject(value);
+
+                if (type === 'DELETE' && side === 'base') rows.push({ type, path: childPath, side, value });
+                else if (type === 'ADD' && side === 'target') rows.push({ type, path: childPath, side, value });
+                else if (type === 'UPDATE' && side === 'base' && (!isContainer || isPrimitiveArray(value))) {
+                    rows.push({ type, path: childPath, side, value, pair: findPair(result.target, childPath) });
+                }
+                if (isContainer && !(type === 'DELETE' || type === 'ADD') && !isPrimitiveArray(value)) {
+                    walk(value, childPath, side);
+                }
+            }
+        }
+
+        function isPrimitiveArray(v) {
+            return Array.isArray(v) && v.every(item => !isObject(item) && !Array.isArray(item));
+        }
+
+        // base 경로를 target에서 찾는다. 경로의 배열 인덱스는 itemMarker가 UPDATE인 항목 기준으로 arrayKey 매칭을 시도한다.
+        function findPair(root, path) {
+            const keys = typeof options.arrayKey === 'string' ? [options.arrayKey] : (options.arrayKey || []);
+            let baseNode = result.base, targetNode = root;
+            for (const token of path.match(/[^.[\]]+|\[\d+\]/g)) {
+                if (token.startsWith('[')) {
+                    const i = Number(token.slice(1, -1));
+                    const baseItem = baseNode?.[i];
+                    const key = isObject(baseItem) ? keys.find(k => Object.hasOwn(baseItem, k)) : undefined;
+                    const matched = key !== undefined && Array.isArray(targetNode)
+                        ? targetNode.find(t => isObject(t) && t[key] === baseItem[key])
+                        : undefined;
+                    baseNode = baseItem;
+                    targetNode = matched ?? targetNode?.[i];
+                } else {
+                    baseNode = baseNode?.[token];
+                    targetNode = targetNode?.[token];
+                }
+            }
+            return targetNode;
+        }
+    }
+
+    function renderSummary(rows) {
+        const fmt = v => v === undefined ? '' : JSON.stringify(v);
+        $('summaryBody').replaceChildren(...rows.map(r => {
+            const tr = document.createElement('tr');
+            const badgeTd = document.createElement('td');
+            badgeTd.append(el('span', `badge ${r.type}`, r.type));
+            tr.append(
+                badgeTd,
+                el('td', 'path', r.path + (r.side === 'target' ? '  (비교 기준 경로)' : '')),
+                el('td', 'path', r.type === 'ADD' ? '' : fmt(r.value)),
+                el('td', 'path', r.type === 'ADD' ? fmt(r.value) : r.type === 'DELETE' ? '' : fmt(r.pair)),
+            );
+            return tr;
+        }));
+    }
+
+    // --- 이벤트 --------------------------------------------------------------
+
+    document.querySelectorAll('.tabs button').forEach(btn => btn.addEventListener('click', () => {
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('[data-view]').forEach(v => { v.hidden = v.dataset.view !== btn.dataset.tab; });
+    }));
+    $('btnCompare').addEventListener('click', runCompare);
+    $('btnReset').addEventListener('click', resetSample);
+
+    resetSample();
+    runCompare();
+</script>
+</body>
+</html>
